@@ -1,6 +1,7 @@
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381;
 use lambdaworks_math::{cyclic_group::IsGroup, elliptic_curve::traits::IsEllipticCurve, field::element::FieldElement};
+use lambdaworks_math::traits::ByteConversion; 
 
 // secret key -> 0x6C616D6264617370 or 7809643498195481456u64
 type FEE = FieldElement<BLS12381PrimeField>;
@@ -10,7 +11,16 @@ fn main() {
     let sk = u64::from_str_radix("6C616D6264617370", 16).expect("Failed to parse key");
     let pk = generatoor.operate_with_self(sk);
 
-    println!("Computed public key: {:?}", pk);
+    //println!("Computed public key: {:?}", pk.x());
+    let pk_affine = pk.to_affine();
+    let (x,y) = (pk_affine.x(), pk_affine.y());
+    let compressed_prefix = if y.to_bytes_le().last().unwrap() % 2 == 0 { 0x02 } else { 0x03 };
+    let public_key_bytes = vec![compressed_prefix].into_iter().chain(x.to_bytes_le().as_slice().to_vec().into_iter()).collect::<Vec<u8>>();
+
+    // Convert the public key byte vector to a hexadecimal string
+    let public_key_hex = public_key_bytes.iter().map(|&b| format!("{:02x}", b)).collect::<String>();
+
+    println!("Computed public key (compressed form): {}", public_key_hex);
 }
 
 #[cfg(test)]
@@ -20,7 +30,7 @@ mod tests {
     #[test]
     fn test_public_key_derivation() {
         let generatoor = bls12_381::curve::BLS12381Curve::generator();
-        let sk = 7809643498195481456u64;
+        let sk = u64::from_str_radix("6C616D6264617370", 16).expect("Failed to parse key");
         let pk = generatoor.operate_with_self(sk);
 
         let res_x = FEE::new_base("67F9FFC5EAF6C19292112EADF50C11E7460E7568493141676F6BA1374BADD9F6AB1F2F5E155B0E3D2F4C1DE79554F80");
